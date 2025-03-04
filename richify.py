@@ -88,11 +88,29 @@ llm "Write some markdown with code snippets" | ./richify.py
                 self.create_markdown(""), console=self.console, refresh_per_second=10
             ) as live:
                 self.live = live
+                buffer = ""
                 while True:
-                    chunk = sys.stdin.read(1)
-                    if not chunk:
+                    char = sys.stdin.read(1)
+                    if not char:
                         break
-                    self.md_content += chunk
+                    buffer += char
+                    # Check for complete tags in the buffer
+                    if "<think>" in buffer or "</think>" in buffer:
+                        # Replace tags when a complete tag is detected
+                        buffer = buffer.replace("<think>", "***\n[THINKING]").replace(
+                            "</think>", "[FINISHED_THINKING]\n***\n")
+                        # Update the markdown content and render
+                        self.md_content += buffer
+                        live.update(self.create_markdown(self.md_content))
+                        buffer = ""  # Clear buffer after processing
+                    elif len(buffer) > 20:  # Adjust buffer size to ensure context
+                        # If no tags are detected and buffer is large, flush it
+                        self.md_content += buffer
+                        live.update(self.create_markdown(self.md_content))
+                        buffer = ""
+                # Final flush of the buffer to render any remaining content
+                if buffer:
+                    self.md_content += buffer
                     live.update(self.create_markdown(self.md_content))
         except UnicodeDecodeError as e:
             rprint(f"[red]Error: Invalid character encoding - {str(e)}[/red]")
